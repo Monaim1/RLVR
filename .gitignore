@@ -1,1 +1,5 @@
 .env
+Patent_Data/*
+.DS_Store
+__pycache__/
+*.pyc
