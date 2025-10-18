@@ -1,5 +1,8 @@
 .env
-Patent_Data/*
+Patent_Data/Raw_Data/
+Patent_Data/Train_data/
+Patent_Data/Val_data/
+
 .DS_Store
 __pycache__/
 *.pyc

@@ -11,6 +11,10 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 import html
 import re
+from typing import List, Dict
+
+from docling.document_converter import DocumentConverter, InputFormat, PdfFormatOption
+from docling.datamodel.pipeline_options import PdfPipelineOptions
 
 raw_data_path = Path("Patent_Data/Raw_data")
 
@@ -18,6 +22,10 @@ train_data_pdf = Path("Patent_Data/Train_data/pdfs")
 train_data_labels = Path("Patent_Data/Train_data/labels")
 val_data_pdf = Path("Patent_Data/Val_data/pdfs")
 val_data_labels = Path("Patent_Data/Val_data/labels")
+
+# Where to save manifests
+train_manifest_path = Path("Patent_Data/train_manifest.parquet")
+val_manifest_path = Path("Patent_Data/val_manifest.parquet")
 
 
 # Create directories if they don't exist
@@ -77,6 +85,91 @@ def get_IP_data(limit=20):
 
     ip_files = [{key: value for key, value in file.items() if key in relevant_fields} for file in ip_files]
     return ip_files
+
+
+# -----------------
+# Manifest utilities
+# -----------------
+
+RELEVANT_FIELDS: List[str] = [
+    "publication_number",
+    "application_number",
+    "patent_number",
+    "date_published",
+    "filing_date",
+    "patent_issue_date",
+    "abandon_date",
+    "decision",
+    "main_cpc_label",
+    "main_ipcr_label",
+    "title",
+    "abstract",
+    "summary",
+    "claims",
+]
+
+
+def _scan_split(pdfs_dir: Path, labels_dir: Path) -> pd.DataFrame:
+    """Scan a split folders and pair pdf/json by stem."""
+    pdfs = {p.stem: p for p in sorted(pdfs_dir.glob("*.pdf"))}
+    labels = {p.stem: p for p in sorted(labels_dir.glob("*.json"))}
+    common = sorted(set(pdfs) & set(labels))
+    rows = []
+    for stem in common:
+        rows.append({
+            "patent_id": stem,
+            "pdf_path": str(pdfs[stem]),
+            "gold_json_path": str(labels[stem]),
+        })
+    return pd.DataFrame(rows)
+
+
+def build_manifests(add_text: bool = True, limit: int = None) -> Dict[str, pd.DataFrame]:
+    """
+    Build train/val manifests. Optionally add a 'text' column using Docling.
+    Returns a dict {"train": df_train, "val": df_val}.
+    """
+    train_df = _scan_split(train_data_pdf, train_data_labels)
+    val_df = _scan_split(val_data_pdf, val_data_labels)
+
+    if limit is not None and limit > 0:
+        train_df = train_df.head(limit)
+        val_df = val_df.head(limit)  
+
+    if add_text:
+        converter = DocumentConverter(format_options={
+            InputFormat.PDF: PdfFormatOption(
+                pipeline_options=PdfPipelineOptions(
+                    do_ocr=False,  # Since we only have text PDFs
+                    force_backend_text=True,
+                    do_table_structure=False,
+                    generate_picture_images=False,
+                    generate_page_images=False,
+                    generate_table_images=False,
+                )
+            )
+        })
+
+        def extract_many(paths: List[str]) -> List[str]:
+            texts: List[str] = []
+            for res in converter.convert_all(paths):
+                texts.append(res.document.export_to_text())
+            return texts
+
+        if not train_df.empty:
+            train_df = train_df.copy()
+            train_df["text"] = extract_many(train_df["pdf_path"].tolist())
+        if not val_df.empty:
+            val_df = val_df.copy()
+            val_df["text"] = extract_many(val_df["pdf_path"].tolist())
+
+    return {"train": train_df, "val": val_df}
+
+
+def save_manifests(train_df: pd.DataFrame, val_df: pd.DataFrame) -> None:
+    """Save manifests to Parquet for reproducibility/resumeability."""
+    train_df.to_parquet(train_manifest_path, index=False)
+    val_df.to_parquet(val_manifest_path, index=False)
 
 
 def sanitize_text(text):
@@ -235,5 +328,14 @@ def generate_pdfs_from_data(data, train_output_dir=train_data_pdf, val_output_di
 
 
 if __name__ == "__main__":
-    data = get_IP_data(limit=700)  # Adjust limit as needed
-    generate_pdfs_from_data(data)
+    # generate PDFs/labels:
+    # data = get_IP_data(limit=700)
+    # generate_pdfs_from_data(data)
+
+    # Build manifests with pre-extracted text using Docling
+    print("Building manifests and pre-extracting text with Docling...")
+    limit_env = os.environ.get("MANIFEST_LIMIT")
+    manifests = build_manifests(add_text=True)
+    save_manifests(manifests["train"], manifests["val"])
+    print(f"Saved train manifest -> {train_manifest_path}")
+    print(f"Saved val manifest   -> {val_manifest_path}")
