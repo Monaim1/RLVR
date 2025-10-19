@@ -79,8 +79,8 @@ def get_IP_data(limit=20):
         # Retrievable Text
         "title",
         "abstract",
-        "summary",
-        'claims',
+        #"summary",
+        #'claims',
     ]
 
     ip_files = [{key: value for key, value in file.items() if key in relevant_fields} for file in ip_files]
@@ -329,8 +329,8 @@ def generate_pdfs_from_data(data, train_output_dir=train_data_pdf, val_output_di
 
 if __name__ == "__main__":
     # generate PDFs/labels:
-    # data = get_IP_data(limit=700)
-    # generate_pdfs_from_data(data)
+    data = get_IP_data(limit=700)
+    generate_pdfs_from_data(data)
 
     # Build manifests with pre-extracted text using Docling
     print("Building manifests and pre-extracting text with Docling...")
