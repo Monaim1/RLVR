@@ -1,16 +1,3 @@
-"""
-Simplified IE reward for patent JSON extraction.
-
-Total reward = w1*validity + w2*mean(field_sims) + w3*constraints + w4*format
-
-- validity (1/0): parsed JSON with all required keys
-- field_sims (0..1): per-field normalized string similarity (fast)
-- constraints (1/0): basic date ordering if dates exist
-- format (0/0.1): exactly expected keys and ISO dates if present
-
-Minimal helpers, fast defaults, no jsonschema.
-"""
-
 import json
 import re
 from datetime import datetime

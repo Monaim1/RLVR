@@ -1,15 +1,4 @@
-"""
-Sketch of a GRPO training loop with Unsloth/TRL for RLVR-style IE.
 
-This file wires:
- - PatentIEDataset (from patent_dataset.py)
- - Reward function (from reward_ie.py)
- - A group sampling loop (K generations per prompt)
- - Group-wise reward normalization and GRPO trainer step
-
-Note: Adjust imports per your Unsloth version. This is an illustrative
-implementation you can adapt to your setup.
-"""
 
 from __future__ import annotations
 
