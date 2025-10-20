@@ -14,4 +14,5 @@ dependencies = [
     "pyarrow>=14.0.1",
     "jsonschema>=4.23.0",
     "rapidfuzz>=3.9.0",
+    "trl>=0.24.0",
 ]
